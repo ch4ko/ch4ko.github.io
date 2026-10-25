@@ -1,16 +1,11 @@
 ---
-title: HTB - Redeemer Writeup - Linux ( Very Easy)
+title: "HTB - Redeemer Writeup - Linux (Very Easy)"
 date: 2026-10-25 12:00:00 -0400
-categories:
-  - HTB
-  - Linux(Very Easy)
-tags:
-  - htb
-  - veryeasy
-  - liunux
+categories: [HTB, Linux(Very Easy)]
+tags: [htb, veryeasy, liunux]
 image:
   path: /assets/img/headers/Redeemer.png
-  alt: HTB-meow
+  alt: HTB-Redeemer
 ---
 
 
