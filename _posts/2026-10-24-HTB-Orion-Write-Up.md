@@ -1,6 +1,6 @@
 ---
 title: "HTB - Orion Writeup - Linux (Easy)"
-date: 2026-10-24 12:00:00 -0400
+date: 2026-10-21 12:00:00 -0400
 categories: [HTB, Linux(Easy)]
 tags: [htb, easy, liunux]
 image:
