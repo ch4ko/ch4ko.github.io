@@ -233,3 +233,9 @@ htmlproofer:
     - "https://fonts.googleapis.com"
     - "https://fonts.gstatic.com"
     - "https://ch4ko.github.io"
+    
+plugins:
+  - jekyll-archives
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-feed

@@ -1,10 +1,13 @@
+---
+title: "HTB - Orion Writeup - Linux (Easy)"
+date: 2026-10-24 12:00:00 -0400
+categories: [HTB, Linux(Easy)]
+tags: [htb, easy, liunux]
+image:
+  path: /assets/img/headers/orion.png
+  alt: HTB-orion
+---
 
----
-title: "HTB: Orion"
-date: 2026-10-24 10:00:00 -0700
-categories: [Write-Up, HTB, Easy, Linux]
-tags: [htb, linux, easy]
----
 
 
 | Target Property | Details |
