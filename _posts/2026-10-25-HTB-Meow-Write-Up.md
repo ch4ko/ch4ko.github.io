@@ -9,15 +9,13 @@ image:
 ---
 
 
-
-| Target Property  | Details                   |
-| :--------------- | :------------------------ |
-| **Machine Name** | Meow                      |
+| Target Property  | Details                        |
+| :--------------- | :----------------------------- |
+| **Machine Name** | Meow                           |
 | **Platform**     | Hack The Box (Very Easy Linux) |
-| **Server IP**    | 10.129.1.17               |
-| **Open Ports**   | 22, 80                    |
-| **Date Solved**  | 2026/10/25                |
-
+| **Server IP**    | 10.129.24.116                  |
+| **Open Ports**   | 23                             |
+| **Date Solved**  | 2026/10/25                     |
 
 
 
