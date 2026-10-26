@@ -17,7 +17,7 @@ image:
 | **Open Ports**   | 22, 80                         |
 | **Date Solved**  | 2026/10/25                     |
 
-![[Three.png]]
+
 
 
 [Hack The Box - Three](https://app.hackthebox.com/machines/Three)
