@@ -1,6 +1,6 @@
 ---
 title: "HTB - Vaccine Writeup - Linux (Very Easy)"
-date: 2026-10-25 12:00:00 -0400
+date: 2026-10-29 12:00:00 -0400
 categories: [HTB, Linux(Very Easy)]
 tags: [htb, veryeasy, liunux]
 image:
