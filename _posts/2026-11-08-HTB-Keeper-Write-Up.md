@@ -68,7 +68,7 @@ PORT   STATE SERVICE VERSION
 
 
 
-when we view  [http://keeper.htb](http://keeper.htb) has the link to the ticket system [http://tickets.keeper.htb](http://tickets.keeper.htb)  
+when we view  `http://keeper.htb` has the link to the ticket system `http://tickets.keeper.htb`
 ![default_web](/assets/img/Write-Up/HTB/Easy/Linux/Keeper/default_web.png)
 
 
@@ -121,12 +121,12 @@ rts                     [Status: 200, Size: 95, Words: 17, Lines: 1, Duration: 2
 ```
 
 
-[http://tickets.keeper.htb/m](http://tickets.keeper.htb/m) it seems like mobile web
+`http://tickets.keeper.htb/m` it seems like mobile web
 ![mobile_web.png](/assets/img/Write-Up/HTB/Easy/Linux/Keeper/mobile_web.png)
 
 
 
-[[http://tickets.keeper.htb/rt](http://tickets.keeper.htb/rt)  the ticket system 
+`http://tickets.keeper.htb/rt`  the ticket system 
 
 ![rt_web.png](/assets/img/Write-Up/HTB/Easy/Linux/Keeper/rt_web.png)
 
